@@ -1,7 +1,8 @@
 import { StatusBar } from "expo-status-bar";
 import { useEffect, useState } from "react";
-import { Button, StyleSheet, Text, TextInput, View } from "react-native";
+import { Alert, Button, StyleSheet, Text, TextInput, View } from "react-native";
 import MapView, { Marker } from "react-native-maps";
+import * as Location from "expo-location";
 
 const API_KEY = "v2SRCGHU06h3rSc5G4XhbrL7Dum3C2RX";
 const API_URL = `http://www.mapquestapi.com/geocoding/v1/address?key=${API_KEY}&location=`;
@@ -11,36 +12,52 @@ export default function App() {
   const [coordinates, setCoordinates] = useState(null);
   const [address, setAddress] = useState("");
 
-  useEffect(() => {
+  const handleLocation = async () => {
+    let { status } = await Location.requestForegroundPermissionsAsync();
+    if (status !== "granted") {
+      Alert.alert("Permission needed for location!");
+      return;
+    }
+    let location = await Location.getCurrentPositionAsync({
+      accuracy: Location.Accuracy.High,
+    });
+    const latitude = location.coords.latitude;
+    const longitude = location.coords.longitude;
     setRegion({
-      latitude: 60.200692,
-      longitude: 24.934302,
+      latitude,
+      longitude,
       latitudeDelta: 0.0322,
       longitudeDelta: 0.0221,
     });
+    handleMarker(latitude, longitude);
+  };
+
+  useEffect(() => {
+    handleLocation();
   }, []);
 
   const handleSearch = async () => {
     try {
       const res = await fetch(`${API_URL}${address}`);
       const json = await res.json();
-      const latLng = json.results[0].locations[0].latLng;
+      const latitude = json.results[0].locations[0].latLng.lat;
+      const longitude = json.results[0].locations[0].latLng.lng;
       setRegion({
-        latitude: latLng.lat,
-        longitude: latLng.lng,
+        latitude,
+        longitude,
         latitudeDelta: 0.0322,
         longitudeDelta: 0.0221,
       });
-      handleMarker(latLng);
+      handleMarker(latitude, longitude);
     } catch (err) {
       console.log(err);
     }
   };
 
-  const handleMarker = (latLng) => {
+  const handleMarker = (latitude, longitude) => {
     setCoordinates({
-      latitude: latLng.lat,
-      longitude: latLng.lng,
+      latitude,
+      longitude,
     });
   };
 
@@ -48,7 +65,10 @@ export default function App() {
     <View style={styles.container}>
       <MapView style={styles.mapContainer} region={region}>
         {coordinates !== null && (
-          <Marker coordinate={coordinates} title={address} />
+          <Marker
+            coordinate={coordinates}
+            title={address || "Current location"}
+          />
         )}
       </MapView>
       <View style={styles.inputContainer}>
